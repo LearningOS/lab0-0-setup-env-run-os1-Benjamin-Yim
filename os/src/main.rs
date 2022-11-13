@@ -9,6 +9,8 @@ mod console;
     // println!("Hello, world!");
 // }
 
+core::arch::global_asm!(include_str!("link_app.S"));
+
 const SYSCALL_EXIT: usize = 94;
 const SYSCALL_WRITE: usize = 64;
 
