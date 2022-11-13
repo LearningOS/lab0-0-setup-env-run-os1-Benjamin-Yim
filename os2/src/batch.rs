@@ -8,11 +8,16 @@ const MAX_APP_NUM: usize = 16;
 const APP_BASE_ADDRESS: usize = 0x80400000;
 const APP_SIZE_LIMIT: usize = 0x20000;
 
+// 在 Trap 触发的一瞬间， CPU 会切换到 S 特权级并跳转到 stvec 所指示的位置。 
+// 但是在正式进入 S 特权级的 Trap 处理之前，我们必须保存原控制流的寄存器状态，这一般通过栈来完成。 
+// 但我们需要用专门为操作系统准备的内核栈，而不是应用程序运行时用到的用户栈。
+
+// 内核栈
 #[repr(align(4096))]
 struct KernelStack {
     data: [u8; KERNEL_STACK_SIZE],
 }
-
+// 用户栈
 #[repr(align(4096))]
 struct UserStack {
     data: [u8; USER_STACK_SIZE],
@@ -39,6 +44,7 @@ impl KernelStack {
 }
 
 impl UserStack {
+    // get_sp 方法来获取栈顶地址
     fn get_sp(&self) -> usize {
         self.data.as_ptr() as usize + USER_STACK_SIZE
     }
@@ -62,13 +68,15 @@ impl AppManager {
             );
         }
     }
-
+    // 这个方法负责将参数 app_id 对应的应用程序的二进制镜像加载到物理内存以 0x80400000 起始的位置
     unsafe fn load_app(&self, app_id: usize) {
         if app_id >= self.num_app {
             panic!("All applications completed!");
         }
         info!("[kernel] Loading app_{}", app_id);
         // clear icache
+        // 清空内存前，我们插入了一条奇怪的汇编指令 fence.i ，它是用来清理 i-cache 的
+        // 缓存又分成 数据缓存 (d-cache) 和 指令缓存 (i-cache) 两部分，分别在 CPU 访存和取指的时候使用
         core::arch::asm!("fence.i");
         // clear app area
         core::slice::from_raw_parts_mut(APP_BASE_ADDRESS as *mut u8, APP_SIZE_LIMIT).fill(0);
@@ -89,6 +97,9 @@ impl AppManager {
     }
 }
 
+// lazy_static! 宏提供了全局变量的运行时初始化功能。一般情况下，全局变量必须在编译期设置初始值
+// 但是有些全局变量的初始化依赖于运行期间才能得到的数据,
+// lazy_static!  只有在它第一次被使用到的时候才会进行实际的初始化工作。
 lazy_static! {
     static ref APP_MANAGER: UPSafeCell<AppManager> = unsafe {
         UPSafeCell::new({
@@ -111,6 +122,7 @@ lazy_static! {
 }
 
 pub fn init() {
+    // 调用 print_app_info 的时第一次用到了全局变量 APP_MANAGER ，它在这时完成初始化
     print_app_info();
 }
 
@@ -118,6 +130,7 @@ pub fn print_app_info() {
     APP_MANAGER.exclusive_access().print_app_info();
 }
 
+// 批处理操作系统的核心操作，即加载并运行下一个应用程序
 pub fn run_next_app() -> ! {
     let mut app_manager = APP_MANAGER.exclusive_access();
     let current_app = app_manager.get_current_app();

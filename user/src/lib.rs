@@ -1,5 +1,8 @@
 #![no_std]
-#![feature(linkage)]
+// 启用弱链接特性
+// 弱链接表示，虽然 lib.rs 和 bin 目录下的某个应用程序中都有 main 符号， 
+// 但由于 lib.rs 中的 main 符号是弱链接， 链接器会使用 bin 目录下的函数作为 main 
+// 如果在 bin 目录下找不到任何 main ，那么编译也能通过，但会在运行时报错。
 #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
 
@@ -45,8 +48,11 @@ fn clear_bss() {
 }
 
 #[no_mangle]
+// link_section 宏将 _start 函数编译后的汇编代码放在
+// 名为 .text.entry 的代码段中， 方便用户库链接脚本将它作为用户程序的入口。
 #[link_section = ".text.entry"]
 pub extern "C" fn _start(argc: usize, argv: usize) -> ! {
+    // 手动清零 .bss 段，然后调用 main 函数得到一个类型为 i32 的返回值
     clear_bss();
     unsafe {
         HEAP.lock()
@@ -66,6 +72,7 @@ pub extern "C" fn _start(argc: usize, argv: usize) -> ! {
             .unwrap(),
         );
     }
+    // 调用用户库提供的 exit 接口退出，并将返回值告知批处理系统
     exit(main(argc, v.as_slice()));
 }
 

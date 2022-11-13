@@ -3,8 +3,8 @@ use riscv::register::sstatus::{self, Sstatus, SPP};
 #[repr(C)]
 pub struct TrapContext {
     pub x: [usize; 32],
-    pub sstatus: Sstatus,
-    pub sepc: usize,
+    pub sstatus: Sstatus, // SPP 等字段给出 Trap 发生之前 CPU 处在哪个特权级（S/U）等信息
+    pub sepc: usize, // 当 Trap 是一个异常的时候，记录 Trap 发生之前执行的最后一条指令的地址
 }
 
 impl TrapContext {
