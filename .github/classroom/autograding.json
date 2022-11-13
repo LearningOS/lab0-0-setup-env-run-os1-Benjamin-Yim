@@ -1,7 +1,7 @@
 {
   "tests": [
     {
-      "name": "run_os1",
+      "name": "setup-env-run-os1",
       "setup": "",
       "run": "make test1",
       "input": "",
